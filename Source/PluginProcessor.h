@@ -1,6 +1,8 @@
 #pragma once
 #include <JuceHeader.h>
 
+#include <array>
+
 class ViolentGlitchProcessor : public juce::AudioProcessor
 {
 public:
@@ -34,12 +36,18 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
+    struct SampleHoldState
+    {
+        float phase = 0.0f;
+        float held = 0.0f;
+    };
+
     std::atomic<float>* crushParam = nullptr;
     std::atomic<float>* rateParam = nullptr;
     std::atomic<float>* chaosParam = nullptr;
     std::atomic<float>* mixParam = nullptr;
-    
-    float phase = 0.0f;
+
+    std::array<SampleHoldState, 2> sampleHoldStates {};
     juce::Random random;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ViolentGlitchProcessor)

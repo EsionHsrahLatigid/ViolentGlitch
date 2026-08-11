@@ -48,7 +48,8 @@ void ViolentGlitchProcessor::changeProgramName(int, const juce::String&) {}
 void ViolentGlitchProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     juce::ignoreUnused(sampleRate, samplesPerBlock);
-    phase = 0.0f;
+    for (auto& state : sampleHoldStates)
+        state = {};
 }
 
 void ViolentGlitchProcessor::releaseResources() {}
@@ -83,10 +84,12 @@ void ViolentGlitchProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     const float step = std::pow(2.0f, crush);
     const float chaosAmount = chaos * 0.95f;
     
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    const auto channelsToProcess = juce::jmin(totalNumInputChannels, static_cast<int>(sampleHoldStates.size()));
+
+    for (int channel = 0; channel < channelsToProcess; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
-        float held = 0.0f;
+        auto& sampleHold = sampleHoldStates[static_cast<std::size_t>(channel)];
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
@@ -97,31 +100,31 @@ void ViolentGlitchProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
             output = std::floor(output * step) / step;
             
             // Sample rate destruction with chaos
-            phase += rate;
-            if (phase >= 1.0f)
+            sampleHold.phase += rate;
+            if (sampleHold.phase >= 1.0f)
             {
-                phase -= 1.0f;
-                held = output;
+                sampleHold.phase -= 1.0f;
+                sampleHold.held = output;
                 
                 // Digital chaos - random bit flips and sign inversions
                 if (random.nextFloat() < chaosAmount)
                 {
-                    held *= -1.0f;
+                    sampleHold.held *= -1.0f;
                 }
                 
                 if (random.nextFloat() < chaosAmount * 0.5f)
                 {
-                    held += (random.nextFloat() - 0.5f) * 2.0f * chaosAmount;
+                    sampleHold.held += (random.nextFloat() - 0.5f) * 2.0f * chaosAmount;
                 }
                 
                 // Harsh digital wrap/fold
                 if (random.nextFloat() < chaosAmount * 0.3f)
                 {
-                    held = std::fmod(held * 10.0f, 2.0f) - 1.0f;
+                    sampleHold.held = std::fmod(sampleHold.held * 10.0f, 2.0f) - 1.0f;
                 }
             }
             
-            output = held;
+            output = sampleHold.held;
             
             // Hard digital clipping
             output = juce::jlimit(-1.0f, 1.0f, output * (1.0f + chaos * 2.0f));
