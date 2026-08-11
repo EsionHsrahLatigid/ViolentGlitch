@@ -10,8 +10,8 @@ ViolentGlitchEditor::ViolentGlitchEditor(ViolentGlitchProcessor& p)
     crushSlider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     crushSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
     addAndMakeVisible(crushSlider);
-    crushAttachment.reset(new juce::AudioProcessorValueTreeState::SliderAttachment(
-        audioProcessor.apvts, "crush", crushSlider));
+    crushAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "crush", crushSlider);
     crushLabel.setText("BIT CRUSH", juce::dontSendNotification);
     crushLabel.setJustificationType(juce::Justification::centred);
     crushLabel.attachToComponent(&crushSlider, false);
@@ -21,8 +21,8 @@ ViolentGlitchEditor::ViolentGlitchEditor(ViolentGlitchProcessor& p)
     rateSlider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     rateSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
     addAndMakeVisible(rateSlider);
-    rateAttachment.reset(new juce::AudioProcessorValueTreeState::SliderAttachment(
-        audioProcessor.apvts, "rate", rateSlider));
+    rateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "rate", rateSlider);
     rateLabel.setText("DESTROY", juce::dontSendNotification);
     rateLabel.setJustificationType(juce::Justification::centred);
     rateLabel.attachToComponent(&rateSlider, false);
@@ -32,8 +32,8 @@ ViolentGlitchEditor::ViolentGlitchEditor(ViolentGlitchProcessor& p)
     chaosSlider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     chaosSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
     addAndMakeVisible(chaosSlider);
-    chaosAttachment.reset(new juce::AudioProcessorValueTreeState::SliderAttachment(
-        audioProcessor.apvts, "chaos", chaosSlider));
+    chaosAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "chaos", chaosSlider);
     chaosLabel.setText("CHAOS", juce::dontSendNotification);
     chaosLabel.setJustificationType(juce::Justification::centred);
     chaosLabel.attachToComponent(&chaosSlider, false);
@@ -43,8 +43,8 @@ ViolentGlitchEditor::ViolentGlitchEditor(ViolentGlitchProcessor& p)
     mixSlider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     mixSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
     addAndMakeVisible(mixSlider);
-    mixAttachment.reset(new juce::AudioProcessorValueTreeState::SliderAttachment(
-        audioProcessor.apvts, "mix", mixSlider));
+    mixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts, "mix", mixSlider);
     mixLabel.setText("MIX", juce::dontSendNotification);
     mixLabel.setJustificationType(juce::Justification::centred);
     mixLabel.attachToComponent(&mixSlider, false);
