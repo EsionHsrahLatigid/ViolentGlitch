@@ -1,6 +1,21 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <cmath>
+
+namespace
+{
+constexpr float maxSafeSample = 1.0f;
+
+float sanitizeSample(float sample) noexcept
+{
+    if (!std::isfinite(sample))
+        return 0.0f;
+
+    return juce::jlimit(-maxSafeSample, maxSafeSample, sample);
+}
+} // namespace
+
 ViolentGlitchProcessor::ViolentGlitchProcessor()
     : AudioProcessor(BusesProperties()
                      .withInput("Input", juce::AudioChannelSet::stereo(), true)
@@ -93,7 +108,7 @@ void ViolentGlitchProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            float input = channelData[sample];
+            float input = sanitizeSample(channelData[sample]);
             float output = input;
             
             // Violent bit crushing
@@ -136,7 +151,7 @@ void ViolentGlitchProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
             }
             
             // Mix
-            channelData[sample] = input * (1.0f - mix) + output * mix;
+            channelData[sample] = sanitizeSample(input * (1.0f - mix) + output * mix);
         }
     }
 }

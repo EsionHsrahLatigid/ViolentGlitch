@@ -3,6 +3,8 @@
 #include <juce_events/juce_events.h>
 #include <cmath>
 #include <iostream>
+#include <iterator>
+#include <limits>
 
 namespace
 {
@@ -22,6 +24,20 @@ void setParameter(juce::AudioProcessorValueTreeState& state, const char* id, flo
 bool checkNear(float actual, float expected, float tolerance, const char* message)
 {
     return check(std::abs(actual - expected) <= tolerance, message);
+}
+
+bool checkFiniteAndBounded(const juce::AudioBuffer<float>& audio, const char* message)
+{
+    bool passed = true;
+    for (int channel = 0; channel < audio.getNumChannels(); ++channel)
+        for (int sample = 0; sample < audio.getNumSamples(); ++sample)
+        {
+            const auto value = audio.getSample(channel, sample);
+            passed &= check(std::isfinite(value), message);
+            passed &= check(value >= -1.0f && value <= 1.0f, message);
+        }
+
+    return passed;
 }
 } // namespace
 
@@ -144,6 +160,73 @@ int main()
         for (int sample = 0; sample < wholeBlock.getNumSamples(); ++sample)
             passed &= checkNear(splitBlock.getSample(channel, sample), wholeBlock.getSample(channel, sample), 1.0e-6f,
                                 "split-block processing should match whole-block processing");
+
+    const float invalidAndExtremeSamples[] {
+        std::numeric_limits<float>::quiet_NaN(),
+        std::numeric_limits<float>::infinity(),
+        -std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::max(),
+        -std::numeric_limits<float>::max(),
+        0.5f,
+        -0.5f
+    };
+
+    for (const auto mixValue : { 0.0f, 0.35f, 1.0f })
+    {
+        ViolentGlitchProcessor sanitizingProcessor;
+        setParameter(sanitizingProcessor.apvts, "crush", 16.0f);
+        setParameter(sanitizingProcessor.apvts, "rate", 1.0f);
+        setParameter(sanitizingProcessor.apvts, "chaos", 0.0f);
+        setParameter(sanitizingProcessor.apvts, "mix", mixValue);
+        sanitizingProcessor.prepareToPlay(sampleRate, 512);
+
+        juce::AudioBuffer<float> invalidAudio(2, static_cast<int>(std::size(invalidAndExtremeSamples)));
+        for (int channel = 0; channel < invalidAudio.getNumChannels(); ++channel)
+            for (int sample = 0; sample < invalidAudio.getNumSamples(); ++sample)
+                invalidAudio.setSample(channel, sample, invalidAndExtremeSamples[sample]);
+
+        sanitizingProcessor.processBlock(invalidAudio, midi);
+        passed &= checkFiniteAndBounded(invalidAudio, "invalid and extreme samples should produce finite bounded output");
+
+        if (mixValue == 0.0f)
+        {
+            passed &= checkNear(invalidAudio.getSample(0, 0), 0.0f, 1.0e-6f,
+                                "NaN dry input should be sanitized to silence");
+            passed &= checkNear(invalidAudio.getSample(0, 1), 0.0f, 1.0e-6f,
+                                "positive infinity dry input should be sanitized to silence");
+            passed &= checkNear(invalidAudio.getSample(0, 2), 0.0f, 1.0e-6f,
+                                "negative infinity dry input should be sanitized to silence");
+        }
+    }
+
+    ViolentGlitchProcessor firstResetProcessor;
+    ViolentGlitchProcessor secondResetProcessor;
+    setParameter(firstResetProcessor.apvts, "crush", 16.0f);
+    setParameter(firstResetProcessor.apvts, "rate", 1.0f);
+    setParameter(firstResetProcessor.apvts, "chaos", 0.0f);
+    setParameter(firstResetProcessor.apvts, "mix", 1.0f);
+    setParameter(secondResetProcessor.apvts, "crush", 16.0f);
+    setParameter(secondResetProcessor.apvts, "rate", 1.0f);
+    setParameter(secondResetProcessor.apvts, "chaos", 0.0f);
+    setParameter(secondResetProcessor.apvts, "mix", 1.0f);
+    firstResetProcessor.prepareToPlay(sampleRate, 512);
+    secondResetProcessor.prepareToPlay(sampleRate, 512);
+
+    juce::AudioBuffer<float> firstResetAudio(2, static_cast<int>(std::size(invalidAndExtremeSamples)));
+    juce::AudioBuffer<float> secondResetAudio(2, static_cast<int>(std::size(invalidAndExtremeSamples)));
+    for (int channel = 0; channel < firstResetAudio.getNumChannels(); ++channel)
+        for (int sample = 0; sample < firstResetAudio.getNumSamples(); ++sample)
+        {
+            firstResetAudio.setSample(channel, sample, invalidAndExtremeSamples[sample]);
+            secondResetAudio.setSample(channel, sample, invalidAndExtremeSamples[sample]);
+        }
+
+    firstResetProcessor.processBlock(firstResetAudio, midi);
+    secondResetProcessor.processBlock(secondResetAudio, midi);
+    for (int channel = 0; channel < firstResetAudio.getNumChannels(); ++channel)
+        for (int sample = 0; sample < firstResetAudio.getNumSamples(); ++sample)
+            passed &= checkNear(firstResetAudio.getSample(channel, sample), secondResetAudio.getSample(channel, sample), 1.0e-6f,
+                                "reset processors should handle invalid input deterministically when chaos is disabled");
 
     if (passed)
         std::cout << "ViolentGlitch plug-in integration checks passed\n";
