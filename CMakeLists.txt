@@ -17,6 +17,7 @@ endif()
 
 if(VIOLENTGLITCH_BUILD_PLUGIN)
     include(FetchContent)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/JUCE/CMakeLists.txt")
         add_subdirectory(JUCE)
@@ -84,6 +85,9 @@ if(VIOLENTGLITCH_BUILD_PLUGIN)
         COMMAND ${CMAKE_COMMAND} -E remove_directory "${violentglitch_staged_products}/Standalone"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
                 "${violentglitch_juce_products}/VST3" "${violentglitch_staged_products}/VST3"
+        COMMAND ${Python3_EXECUTABLE}
+                "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NormalizeVst3ModuleInfo.py"
+                "${violentglitch_staged_products}/VST3/ViolentGlitch.vst3/Contents/Resources/moduleinfo.json"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
                 "${violentglitch_juce_products}/Standalone" "${violentglitch_staged_products}/Standalone")
 
@@ -123,6 +127,7 @@ if(VIOLENTGLITCH_BUILD_PLUGIN)
             COMMAND ${CMAKE_COMMAND}
                     -DVIOLENTGLITCH_STAGED_DIR=${VIOLENTGLITCH_ARTIFACT_DIR}/$<CONFIG>
                     -DVIOLENTGLITCH_EXPECT_AU=$<BOOL:${APPLE}>
+                    -DPython3_EXECUTABLE=${Python3_EXECUTABLE}
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/Tests/VerifyArtifacts.cmake)
     endif()
 endif()
