@@ -1,7 +1,9 @@
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 
 #include <juce_events/juce_events.h>
 #include <cmath>
+#include <functional>
 #include <iostream>
 #include <iterator>
 #include <limits>
@@ -39,6 +41,59 @@ bool checkFiniteAndBounded(const juce::AudioBuffer<float>& audio, const char* me
 
     return passed;
 }
+
+bool hasForbiddenRedPixel(juce::Component& component)
+{
+    juce::Image image(juce::Image::RGB, component.getWidth(), component.getHeight(), true);
+    juce::Graphics graphics(image);
+    component.paintEntireComponent(graphics, true);
+
+    for (int y = 0; y < image.getHeight(); ++y)
+        for (int x = 0; x < image.getWidth(); ++x)
+        {
+            const auto colour = image.getPixelAt(x, y);
+            if (colour.getRed() > 180 && colour.getGreen() < 96 && colour.getBlue() < 96)
+                return true;
+        }
+
+    return false;
+}
+
+bool componentTreeHasUsableControls(juce::Component& root)
+{
+    bool passed = true;
+    int interactiveCount = 0;
+    std::function<void(juce::Component&)> visit = [&](juce::Component& component)
+    {
+        if (dynamic_cast<juce::Slider*>(&component) != nullptr)
+        {
+            ++interactiveCount;
+            passed &= check(component.getWidth() >= 24 && component.getHeight() >= 24,
+                            "editor sliders should keep at least 24px hit areas");
+        }
+
+        for (int index = 0; index < component.getNumChildComponents(); ++index)
+            visit(*component.getChildComponent(index));
+    };
+    visit(root);
+    passed &= check(interactiveCount == 4, "editor should expose all four sliders");
+    return passed;
+}
+
+bool verifyEditorContract(ViolentGlitchProcessor& processor)
+{
+    ViolentGlitchEditor editor(processor);
+    editor.resized();
+
+    bool passed = true;
+    passed &= check(editor.getWidth() == ehl::juce_design::Metrics::defaultWidth
+                       && editor.getHeight() == ehl::juce_design::Metrics::defaultHeight,
+                   "editor should use the shared EHL default size");
+    passed &= check(editor.isResizable(), "editor should be resizable within shared EHL limits");
+    passed &= check(componentTreeHasUsableControls(editor), "editor control tree should remain usable");
+    passed &= check(!hasForbiddenRedPixel(editor), "editor should not retain red/neon accent pixels");
+    return passed;
+}
 } // namespace
 
 int main()
@@ -48,6 +103,7 @@ int main()
     bool passed = true;
 
     passed &= check(processor.getName() == "ViolentGlitch", "product name should be ViolentGlitch");
+    passed &= verifyEditorContract(processor);
     passed &= check(!processor.acceptsMidi(), "processor should not accept MIDI");
     passed &= check(!processor.isMidiEffect(), "processor should be an audio effect");
 

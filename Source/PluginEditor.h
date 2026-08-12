@@ -1,8 +1,10 @@
 #pragma once
 #include <JuceHeader.h>
+#include <ehl/juce_design/EhlDesign.h>
 #include "PluginProcessor.h"
 
-class ViolentGlitchEditor : public juce::AudioProcessorEditor
+class ViolentGlitchEditor : public juce::AudioProcessorEditor,
+                            private juce::Timer
 {
 public:
     ViolentGlitchEditor(ViolentGlitchProcessor&);
@@ -12,7 +14,13 @@ public:
     void resized() override;
 
 private:
+    void timerCallback() override;
+    void updateDisplay();
+
     ViolentGlitchProcessor& audioProcessor;
+
+    ehl::juce_design::LookAndFeel lookAndFeel;
+    ehl::juce_design::ParameterDisplay display{ehl::juce_design::DisplayKind::bitcrusher};
     
     juce::Slider crushSlider;
     juce::Slider rateSlider;

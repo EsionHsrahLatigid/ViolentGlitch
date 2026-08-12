@@ -1,78 +1,103 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+namespace
+{
+void styleSlider(juce::Slider& slider, const juce::String& name)
+{
+    slider.setName(name);
+    ehl::juce_design::styleSlider(slider);
+}
+
+void styleLabel(juce::Label& label, const juce::String& text)
+{
+    label.setText(text, juce::dontSendNotification);
+    ehl::juce_design::styleLabel(label);
+    label.setJustificationType(juce::Justification::centred);
+}
+} // namespace
+
 ViolentGlitchEditor::ViolentGlitchEditor(ViolentGlitchProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(400, 300);
+    setLookAndFeel(&lookAndFeel);
     
-    // Bit Crush slider
-    crushSlider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
-    crushSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    styleSlider(crushSlider, "Bit Crush");
     addAndMakeVisible(crushSlider);
     crushAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.apvts, "crush", crushSlider);
-    crushLabel.setText("BIT CRUSH", juce::dontSendNotification);
-    crushLabel.setJustificationType(juce::Justification::centred);
-    crushLabel.attachToComponent(&crushSlider, false);
+    styleLabel(crushLabel, "BIT CRUSH");
     addAndMakeVisible(crushLabel);
     
-    // Sample Rate slider
-    rateSlider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
-    rateSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    styleSlider(rateSlider, "Destroy");
     addAndMakeVisible(rateSlider);
     rateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.apvts, "rate", rateSlider);
-    rateLabel.setText("DESTROY", juce::dontSendNotification);
-    rateLabel.setJustificationType(juce::Justification::centred);
-    rateLabel.attachToComponent(&rateSlider, false);
+    styleLabel(rateLabel, "DESTROY");
     addAndMakeVisible(rateLabel);
     
-    // Chaos slider
-    chaosSlider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
-    chaosSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    styleSlider(chaosSlider, "Chaos");
     addAndMakeVisible(chaosSlider);
     chaosAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.apvts, "chaos", chaosSlider);
-    chaosLabel.setText("CHAOS", juce::dontSendNotification);
-    chaosLabel.setJustificationType(juce::Justification::centred);
-    chaosLabel.attachToComponent(&chaosSlider, false);
+    styleLabel(chaosLabel, "CHAOS");
     addAndMakeVisible(chaosLabel);
     
-    // Mix slider
-    mixSlider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
-    mixSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    styleSlider(mixSlider, "Mix");
     addAndMakeVisible(mixSlider);
     mixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.apvts, "mix", mixSlider);
-    mixLabel.setText("MIX", juce::dontSendNotification);
-    mixLabel.setJustificationType(juce::Justification::centred);
-    mixLabel.attachToComponent(&mixSlider, false);
+    styleLabel(mixLabel, "MIX");
     addAndMakeVisible(mixLabel);
+    addAndMakeVisible(display);
+
+    setResizable(true, true);
+    setResizeLimits(ehl::juce_design::Metrics::minimumWidth,
+                    ehl::juce_design::Metrics::minimumHeight,
+                    ehl::juce_design::Metrics::maximumWidth,
+                    ehl::juce_design::Metrics::maximumHeight);
+    setSize(ehl::juce_design::Metrics::defaultWidth,
+            ehl::juce_design::Metrics::defaultHeight);
+    updateDisplay();
+    startTimerHz(15);
 }
 
-ViolentGlitchEditor::~ViolentGlitchEditor() {}
+ViolentGlitchEditor::~ViolentGlitchEditor()
+{
+    stopTimer();
+    setLookAndFeel(nullptr);
+}
 
 void ViolentGlitchEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::black);
-    
-    g.setColour(juce::Colours::red);
-    g.setFont(24.0f);
-    g.drawFittedText("VIOLENT GLITCH", getLocalBounds().removeFromTop(40), 
-                     juce::Justification::centred, 1);
+    ehl::juce_design::paintEditorChrome(g, getLocalBounds(),
+                                        "ViolentGlitch",
+                                        "destructive bit / rate corruption");
 }
 
 void ViolentGlitchEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced(20);
-    bounds.removeFromTop(40);
-    
-    auto sliderBounds = bounds.removeFromTop(180);
-    auto sliderWidth = sliderBounds.getWidth() / 4;
-    
-    crushSlider.setBounds(sliderBounds.removeFromLeft(sliderWidth).reduced(10));
-    rateSlider.setBounds(sliderBounds.removeFromLeft(sliderWidth).reduced(10));
-    chaosSlider.setBounds(sliderBounds.removeFromLeft(sliderWidth).reduced(10));
-    mixSlider.setBounds(sliderBounds.removeFromLeft(sliderWidth).reduced(10));
+    display.setBounds(ehl::juce_design::parameterDisplayArea(getLocalBounds()));
+    ehl::juce_design::layoutLabelledControl(
+        crushLabel, crushSlider, ehl::juce_design::controlCell(getLocalBounds(), 0));
+    ehl::juce_design::layoutLabelledControl(
+        rateLabel, rateSlider, ehl::juce_design::controlCell(getLocalBounds(), 1));
+    ehl::juce_design::layoutLabelledControl(
+        chaosLabel, chaosSlider, ehl::juce_design::controlCell(getLocalBounds(), 2));
+    ehl::juce_design::layoutLabelledControl(
+        mixLabel, mixSlider, ehl::juce_design::controlCell(getLocalBounds(), 3));
+}
+
+void ViolentGlitchEditor::timerCallback() { updateDisplay(); }
+
+void ViolentGlitchEditor::updateDisplay()
+{
+    const auto normalized = [this](const char* id)
+    {
+        if (auto* parameter = audioProcessor.apvts.getParameter(id))
+            return parameter->getValue();
+        return 0.0f;
+    };
+    display.setValues({ normalized("crush"), normalized("rate"),
+                        normalized("chaos"), normalized("mix") });
 }
