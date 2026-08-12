@@ -179,6 +179,7 @@ if(VIOLENTGLITCH_BUILD_PLUGIN)
         add_test(
             NAME ViolentGlitchArtifactChecks
             COMMAND ${CMAKE_COMMAND}
+                    -DBUILD_CONFIG=$<CONFIG>
                     -DSTAGE_DIR=${violentglitch_staged_products}
                     -DSLUG=violentglitch
                     -DEXPECT_AU=$<BOOL:${APPLE}>
