@@ -33,13 +33,25 @@ ctest --test-dir build/release --output-on-failure
 Final products are staged under:
 
 ```text
-artifacts/Release/
-├── AU/ViolentGlitch.component          # macOS only
-├── Standalone/ViolentGlitch.app        # macOS
-└── VST3/ViolentGlitch.vst3
+artifacts/plugin-release/macos-arm64/standalone/violentglitch_standalone_plugin.app
+artifacts/plugin-release/macos-arm64/vst3/violentglitch_vst3_plugin.vst3
+artifacts/plugin-release/macos-arm64/au/violentglitch_au_plugin.component
+artifacts/plugin-release/macos-arm64/ARTIFACTS.txt
+artifacts/plugin-release/windows-x64/standalone/violentglitch_standalone_plugin.exe
+artifacts/plugin-release/windows-x64/vst3/violentglitch_vst3_plugin.vst3
+artifacts/plugin-release/windows-x64/ARTIFACTS.txt
 ```
 
 Override the staging root with `-DVIOLENTGLITCH_ARTIFACT_DIR=/absolute/path`.
+
+On local macOS builds outside CI, VST3 and AU formats are also copied to the
+current user's standard plug-in folders:
+
+- `~/Library/Audio/Plug-Ins/VST3/ViolentGlitch.vst3`
+- `~/Library/Audio/Plug-Ins/Components/ViolentGlitch.component`
+
+Standalone remains in the artifact tree. CI and non-macOS builds do not copy by
+default. Override with `-DEHL_COPY_PLUGIN_AFTER_BUILD=ON` or `OFF`.
 
 ## Plug-in identity
 
